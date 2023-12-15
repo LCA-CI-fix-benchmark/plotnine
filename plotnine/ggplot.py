@@ -838,11 +838,12 @@ class plot_context:
         Setup ipython parameters in for the plot
         """
         ip = get_ipython()
-        if not ip or not hasattr(ip.config, "InlineBackend"):
+        InlineBackend = ip and ip.config.get("InlineBackend")
+        if not ip or not InlineBackend:
             return
 
         for key, value in self._IPYTHON_CONFIG["InlineBackend"].items():
-            if key not in ip.config.InlineBackend:  # pyright: ignore
+            if key not in InlineBackend:
                 self._ip_config_inlinebackend[key] = key
                 ip.run_line_magic("config", f"InlineBackend.{key} = {value!r}")
 
@@ -851,10 +852,11 @@ class plot_context:
         Undo ipython parameters in for the plot
         """
         ip = get_ipython()
-        if not ip or not hasattr(ip.config, "InlineBackend"):
+        InlineBackend = ip and ip.config.get("InlineBackend")
+        if not ip or not InlineBackend:
             return
 
         for key in self._ip_config_inlinebackend:
-            del ip.config["InlineBackend"][key]  # pyright: ignore
+            del ip.config["InlineBackend"][key]  # type: ignore
 
         self._ip_config_inlinebackend = {}
