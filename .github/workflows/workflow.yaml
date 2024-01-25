@@ -1,0 +1,170 @@
+name: build
+
+on: push
+
+jobs:
+  unittests:
+    runs-on: ubuntu-latest
+
+    # We want to run on external PRs, but not on our own internal PRs as they'll be run
+    # by the push to the branch.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
+      != github.repository
+
+    strategy:
+      matrix:
+        python-version: [3.9, 3.12]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Packages
+      shell: bash
+      run: |
+        pip install ".[extra,test]"
+
+    - name: Environment Information
+      shell: bash
+      run: |
+        pip list
+
+    - name: Run Tests
+      shell: bash
+      run: |
+        coverage erase
+        make test
+
+    - uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: result-images
+        path: tests/result_images/
+        if-no-files-found: ignore
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        fail_ci_if_error: true
+        name: py${{ matrix.python-version }}
+
+  lint-and-format:
+    runs-on: ubuntu-latest
+
+    # We want to run on external PRs, but not on our own internal PRs as they'll be run
+    # by the push to the branch.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
+      != github.repository
+
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Packages
+      shell: bash
+      run: |
+        pip install ruff
+
+    - name: Environment Information
+      shell: bash
+      run: pip list
+
+    - name: Check lint with Ruff
+      shell: bash
+      run: |
+        make lint
+
+    - name: Check format with Ruff
+      shell: bash
+      run: |
+        make format
+
+  typecheck:
+    runs-on: ubuntu-latest
+
+    # We want to run on external PRs, but not on our own internal PRs as they'll be run
+    # by the push to the branch.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
+      != github.repository
+
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Packages
+      shell: bash
+      run: |
+        pip install git+https://github.com/has2k1/mizani.git@main
+        pip install ".[extra, typing]"
+
+    - name: Environment Information
+      shell: bash
+      run: pip list
+
+    - name: Run Tests
+      shell: bash
+      run: make typecheck
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    # We want to run on external PRs, but not on our own internal PRs as they'll be run
+    # by the push to the branch.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
+      != github.repository
+
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Quarto
+      uses: quarto-dev/quarto-actions/setup@v2
+      with:
+        version: 1.4.521
+
+    - name: Install Packages
+      shell: bash
+      run: |
+        sudo apt-get install pandoc
+        pip install git+https://github.com/has2k1/mizani.git@main
+        pip install ".[test,doc]"
+        pip install -r requirements/doc.txt
+        quarto add --no-prompt has2k1/issuey
+
+    - name: Environment Information
+      shell: bash
+      run: pip list
+
+    - name: Build documentation
+      run: |
+        make doc
